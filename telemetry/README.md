@@ -1,6 +1,6 @@
 # telemetry
 
-- add influx token to `.env` as `INFLUX_TOKEN="<YOUR TOKEN>"`
+- add influx token to `.env` as `INFLUXDB_TOKEN="<YOUR TOKEN>"`
 
 ```bash
 poetry install

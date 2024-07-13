@@ -11,6 +11,8 @@ obd = "^0.7.2"
 influxdb-client = "^1.44.0"
 python-dotenv = "^1.0.1"
 
+[tool.poetry.scripts]
+start = "telemetry.main:start"
 
 [build-system]
 requires = ["poetry-core"]
