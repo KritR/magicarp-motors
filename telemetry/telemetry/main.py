@@ -12,4 +12,3 @@ print(connection.print_commands())
 while True:
   response = connection.query(obd.commands.RPM)
   print(response.value) # returns unit-bearing values thanks to Pint
-

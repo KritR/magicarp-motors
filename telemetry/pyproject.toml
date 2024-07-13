@@ -1,15 +1,12 @@
 [tool.poetry]
-name = "magicarp"
+name = "telemetry"
 version = "0.1.0"
 description = ""
-authors = ["None"]
-license = "MIT"
+authors = ["Your Name <you@example.com>"]
 readme = "README.md"
-package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.12"
-obd = "^0.7.2"
 
 
 [build-system]
