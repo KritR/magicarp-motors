@@ -36,7 +36,7 @@ def start():
       points = []
       for cmd in commands:
         response = connection.query(cmd)
-        val = response.value
+        val = response.value.magnitude
 
         point = Point(cmd.name).field("value", val)
         points.append(point)
