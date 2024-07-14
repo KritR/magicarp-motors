@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import influxdb_client, os
 from influxdb_client import Point
 from influxdb_client.client.write_api import SYNCHRONOUS
+from pint import Unit
 
 load_dotenv()
 
@@ -41,7 +42,7 @@ def start():
       points = []
       for cmd in commands:
         response = connection.query(cmd)
-        if response.value and "magnitude" not in response.value:
+        if not (response.value and isinstance(response.value, Unit.Quantity)):
           continue
 
         val = response.value.magnitude
