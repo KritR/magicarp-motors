@@ -43,9 +43,9 @@ def start():
         response = connection.query(cmd)
         if not (response.value):
           continue
-
-        print(type(response.value).__name__)
-
+        if not isinstance(response.value, obd.Unit.Quantity):
+          continue
+        
         val = response.value.magnitude
 
         point = Point(cmd.name).field("value", val)
