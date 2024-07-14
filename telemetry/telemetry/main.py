@@ -16,9 +16,9 @@ org = "magicarp"
 bucket="vehicle"
 url = "https://magicarp-telemetry.fly.dev"
 
-commands: List[obd.OBDCommand] = [
-  obd.commands.RPM
-]
+# commands: List[obd.OBDCommand] = [
+#   obd.commands.RPM
+# ]
 
 def start():
     client = influxdb_client.InfluxDBClient(url=url, token=token, org=org)
@@ -34,6 +34,8 @@ def start():
     print(f"connected using {connection.protocol_name()}")
     print(connection.print_commands())
 
+    commands = connection.supported_commands
+    
     # query loop
     while True:
       points = []
