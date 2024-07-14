@@ -24,7 +24,7 @@ def start():
     obd.logger.setLevel(obd.logging.DEBUG)
 
     print("connecting to obd2 port")
-    connection = obd.OBD(protocol=obd.protocols.ISO_9141_2)
+    connection = obd.OBD()
 
     if not connection.is_connected():
       print("connection failed")
@@ -35,11 +35,17 @@ def start():
 
     # query loop
     while True:
-      telem_point = {}
+      points = []
       for cmd in commands:
         response = connection.query(cmd)
         val = response.value
-        telem_point[cmd.name] = val
 
-      point = Point("telemetry").from_dict(telem_point)
-      write_api.write(bucket=bucket, org="magicarp", record=point)
+        point = Point().from_dict({
+          measurement: cmd.name,
+          fields: {
+             value: val,
+          }
+        })
+
+        points.append(point)
+      write_api.write(bucket=bucket, org="magicarp", record=points)
