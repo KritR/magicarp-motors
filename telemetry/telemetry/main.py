@@ -41,7 +41,7 @@ def start():
       points = []
       for cmd in commands:
         response = connection.query(cmd)
-        if not response.value:
+        if "magnitude" not in response.value:
           continue
 
         val = response.value.magnitude
