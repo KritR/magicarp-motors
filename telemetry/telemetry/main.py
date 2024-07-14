@@ -41,11 +41,11 @@ def start():
       points = []
       for cmd in commands:
         response = connection.query(cmd)
-        if not (response.value):
+        if response.value == None:
           continue
         if not isinstance(response.value, obd.Unit.Quantity):
           continue
-        
+
         val = response.value.magnitude
 
         point = Point(cmd.name).field("value", val)
