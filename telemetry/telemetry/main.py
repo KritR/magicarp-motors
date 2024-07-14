@@ -21,8 +21,6 @@ def start():
     client = influxdb_client.InfluxDBClient(url=url, token=token, org=org)
     write_api = client.write_api(write_options=SYNCHRONOUS)
 
-    obd.logger.setLevel(obd.logging.DEBUG)
-
     print("connecting to obd2 port")
     connection = obd.OBD()
 
@@ -40,12 +38,6 @@ def start():
         response = connection.query(cmd)
         val = response.value
 
-        point = Point().from_dict({
-          measurement: cmd.name,
-          fields: {
-             value: val,
-          }
-        })
-
+        point = Point(cmd.name).field("value", val)
         points.append(point)
       write_api.write(bucket=bucket, org="magicarp", record=points)
