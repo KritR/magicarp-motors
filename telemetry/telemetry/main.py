@@ -35,12 +35,15 @@ def start():
     print(connection.print_commands())
 
     commands = connection.supported_commands
-    
+
     # query loop
     while True:
       points = []
       for cmd in commands:
         response = connection.query(cmd)
+        if not response.value:
+          continue
+
         val = response.value.magnitude
 
         point = Point(cmd.name).field("value", val)
