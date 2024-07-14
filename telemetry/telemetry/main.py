@@ -43,4 +43,6 @@ def start():
 
         point = Point(cmd.name).field("value", val)
         points.append(point)
+      
+      print(f"wrote {len(points)} points to influx")
       write_api.write(bucket=bucket, org="magicarp", record=points)
