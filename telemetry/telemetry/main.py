@@ -9,6 +9,9 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 load_dotenv()
 
 token = os.environ.get("INFLUXDB_TOKEN")
+if not token or len(token) == 0:
+  raise ValueError("INFLUXDB_TOKEN is not set")
+
 org = "magicarp"
 bucket="vehicle"
 url = "https://magicarp-telemetry.fly.dev"
