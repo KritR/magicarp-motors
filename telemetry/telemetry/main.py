@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import influxdb_client, os
 from influxdb_client import Point
 from influxdb_client.client.write_api import SYNCHRONOUS
-import datetime
+from datetime import datetime
 
 load_dotenv()
 
