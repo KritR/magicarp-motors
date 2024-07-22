@@ -4,5 +4,5 @@
 
 ```bash
 poetry install
-python telemetry/main.py
+poetry run start
 ```
