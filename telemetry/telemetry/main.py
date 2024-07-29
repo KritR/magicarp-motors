@@ -19,7 +19,10 @@ bucket = "vehicle"
 url = "https://magicarp-telemetry.fly.dev"
 
 commands: List[obd.OBDCommand] = [
-  obd.commands.RPM
+  obd.commands.RPM,
+  obd.commands.THROTTLE_POS,
+  obd.commands.SPEED,
+  obd.commands.COOLANT_TEMP
 ]
 
 drive_id = f"drive-{datetime.today().isoformat()}"
