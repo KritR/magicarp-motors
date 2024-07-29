@@ -1,6 +1,7 @@
 from typing import List
 import obd
 import os
+import time
 from dotenv import load_dotenv
 import influxdb_client
 from influxdb_client import Point
@@ -57,5 +58,9 @@ def start():
     connection.watch(command, callback=create_influx_callback(command))
 
   connection.start()
+  while (True):
+    time.sleep(60)
+
+  connection.stop()
 
 start()
