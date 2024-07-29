@@ -2,7 +2,7 @@ from typing import List
 import obd
 import os
 from dotenv import load_dotenv
-import influxdb_client, os
+import influxdb_client
 from influxdb_client import Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 from datetime import datetime
@@ -14,7 +14,7 @@ if not token or len(token) == 0:
   raise ValueError("INFLUXDB_TOKEN is not set")
 
 org = "magicarp"
-bucket="vehicle"
+bucket = "vehicle"
 url = "https://magicarp-telemetry.fly.dev"
 
 commands: List[obd.OBDCommand] = [
@@ -57,3 +57,5 @@ def start():
     connection.watch(command, callback=create_influx_callback(command))
 
   connection.start()
+
+start()
