@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# Configuration
+RTMP_SERVER="rtmp://104.198.139.249/live"
+STREAM_KEY="${1:-test}"  # Use first argument or default to "test"
+
+echo "======================================"
+echo "Mac Camera to RTMP Stream"
+echo "======================================"
+echo "Server: $RTMP_SERVER"
+echo "Stream Key: $STREAM_KEY"
+echo ""
+echo "Watch in OBS with:"
+echo "  http://104.198.139.249/hls/$STREAM_KEY.m3u8"
+echo ""
+echo "Press Ctrl+C to stop streaming"
+echo "======================================"
+echo ""
+
+# Check if ffmpeg is installed
+if ! command -v ffmpeg &> /dev/null; then
+    echo "Error: ffmpeg is not installed"
+    echo "Install with: brew install ffmpeg"
+    exit 1
+fi
+
+# List available devices (commented out, uncomment to see your devices)
+# echo "Available devices:"
+# ffmpeg -f avfoundation -list_devices true -i ""
+# echo ""
+
+# Stream from Mac camera
+# Device 0 is usually the built-in camera
+# Device :0 is usually the built-in microphone
+ffmpeg \
+  -f avfoundation \
+  -framerate 30 \
+  -video_size 1280x720 \
+  -i "0:0" \
+  -c:v libx264 \
+  -preset veryfast \
+  -maxrate 3000k \
+  -bufsize 6000k \
+  -pix_fmt yuv420p \
+  -g 60 \
+  -c:a aac \
+  -b:a 128k \
+  -ar 44100 \
+  -f flv \
+  "$RTMP_SERVER/$STREAM_KEY"
