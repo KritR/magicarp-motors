@@ -14,9 +14,17 @@ token = os.environ.get("INFLUXDB_TOKEN")
 if not token or len(token) == 0:
   raise ValueError("INFLUXDB_TOKEN is not set")
 
-org = "magicarp"
-bucket = "vehicle"
-url = "https://magicarp-telemetry.fly.dev"
+org = os.environ.get("INFLUXDB_ORG")
+if not org or len(org) == 0:
+  raise ValueError("INFLUXDB_ORG is not set")
+
+bucket = os.environ.get("INFLUXDB_BUCKET")
+if not bucket or len(bucket) == 0:
+  raise ValueError("INFLUXDB_BUCKET is not set")
+
+url = os.environ.get("INFLUXDB_URL")
+if not url or len(url) == 0:
+  raise ValueError("INFLUXDB_URL is not set")
 
 commands: List[obd.OBDCommand] = [
   obd.commands.RPM,

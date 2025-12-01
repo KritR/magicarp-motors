@@ -23,7 +23,20 @@ resource "google_compute_instance" "streaming_server" {
     startup-script = <<-EOF
       #!/bin/bash
       apt-get update
-      apt-get install -y nginx libnginx-mod-rtmp
+      apt-get install -y nginx libnginx-mod-rtmp curl
+
+      # Install InfluxDB 2.x
+      wget -q https://repos.influxdata.com/influxdata-archive_compat.key
+      echo '393e8779c89ac8d958f81f942f9ad7fb82a25e133faddaf92e15b16e6ac9ce4c influxdata-archive_compat.key' | sha256sum -c && cat influxdata-archive_compat.key | gpg --dearmor | tee /etc/apt/trusted.gpg.d/influxdata-archive_compat.gpg > /dev/null
+      echo 'deb [signed-by=/etc/apt/trusted.gpg.d/influxdata-archive_compat.gpg] https://repos.influxdata.com/debian stable main' | tee /etc/apt/sources.list.d/influxdata.list
+      apt-get update && apt-get install -y influxdb2
+
+      # Start InfluxDB
+      systemctl start influxdb
+      systemctl enable influxdb
+
+      # Wait for InfluxDB to start
+      sleep 10
 
       # Basic RTMP configuration
       cat > /etc/nginx/nginx.conf << 'NGINX_EOF'
@@ -92,7 +105,7 @@ resource "google_compute_instance" "streaming_server" {
     EOF
   }
 
-  tags = ["http-server", "rtmp-server"]
+  tags = ["http-server", "rtmp-server", "influxdb-server"]
 
   service_account {
     scopes = ["cloud-platform"]
@@ -127,8 +140,27 @@ resource "google_compute_firewall" "allow_rtmp" {
   target_tags   = ["rtmp-server"]
 }
 
+# Firewall rule for InfluxDB
+resource "google_compute_firewall" "allow_influxdb" {
+  name    = "allow-influxdb"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["8086"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["influxdb-server"]
+}
+
 # Output the external IP
 output "streaming_server_ip" {
   description = "External IP address of the streaming server"
   value       = google_compute_instance.streaming_server.network_interface[0].access_config[0].nat_ip
+}
+
+output "influxdb_url" {
+  description = "InfluxDB URL for API access"
+  value       = "http://${google_compute_instance.streaming_server.network_interface[0].access_config[0].nat_ip}:8086"
 }
