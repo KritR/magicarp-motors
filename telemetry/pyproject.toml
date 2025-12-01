@@ -13,6 +13,7 @@ python-dotenv = "^1.0.1"
 
 [tool.poetry.scripts]
 start = "telemetry.main:start"
+fake-data = "telemetry.fake_data:start"
 
 [build-system]
 requires = ["poetry-core"]
