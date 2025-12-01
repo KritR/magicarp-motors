@@ -12,7 +12,7 @@ export default function Overlay() {
       {/* Widget Container */}
       <div className="fixed bottom-12 right-12 w-[450px] flex flex-col gap-2">
         {/* Main Box - Industrial Style */}
-        <div className="relative bg-black border-2 border-white/10 p-6 shadow-[0_0_30px_rgba(0,0,0,0.5)] backdrop-blur-md">
+        <div className="relative bg-black/90 border-2 border-white/10 p-6 shadow-[0_0_30px_rgba(0,0,0,0.5)] backdrop-blur-md">
           {/* Industrial Corner Brackets */}
           <div className="absolute -top-[2px] -left-[2px] w-6 h-6 border-t-4 border-l-4 border-primary z-30"></div>
           <div className="absolute -top-[2px] -right-[2px] w-6 h-6 border-t-4 border-r-4 border-primary z-30"></div>
