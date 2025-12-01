@@ -1,11 +1,10 @@
 from typing import List
 import obd
 import os
-import time
+import asyncio
 from dotenv import load_dotenv
-import influxdb_client
 from influxdb_client import Point
-from influxdb_client.client.write_api import SYNCHRONOUS
+from influxdb_client.client.influxdb_client_async import InfluxDBClientAsync
 from datetime import datetime
 
 load_dotenv()
@@ -30,48 +29,47 @@ commands: List[obd.OBDCommand] = [
   obd.commands.RPM,
   obd.commands.THROTTLE_POS,
   obd.commands.SPEED,
-  obd.commands.COOLANT_TEMP
 ]
 
 drive_id = f"drive-{datetime.today().isoformat()}"
-client = influxdb_client.InfluxDBClient(url=url, token=token, org=org)
-write_api = client.write_api(write_options=SYNCHRONOUS)
 
-def create_influx_callback(command: obd.OBDCommand):
+def create_influx_callback(command: obd.OBDCommand, write_api):
   def callback(response):
     if response.value == None or not isinstance(response.value, obd.Unit.Quantity):
       return
     val = response.value.magnitude
 
     point = Point(command.name).field("value", val).tag("drive", drive_id)
-    write_api.write(bucket=bucket, org="magicarp", record=point)
+    asyncio.create_task(write_api.write(bucket=bucket, org="magicarp", record=point))
     print(f"wrote {command.name}={val} to influx")
 
   return callback
 
-def start():
-  print("connecting to obd2 port")
-  connection = obd.Async(
-    delay_cmds=0,
-    fast=True,
-  )
+async def start():
+  async with InfluxDBClientAsync(url=url, token=token, org=org) as client:
+    write_api = client.write_api()
 
-  if not connection.is_connected():
-    print("connection failed")
-    return
+    print("connecting to obd2 port")
+    connection = obd.Async(
+      delay_cmds=0,
+      fast=True,
+    )
 
-  print(f"connected using {connection.protocol_name()}, listing available commands: ")
-  print(connection.print_commands())
+    if not connection.is_connected():
+      print("connection failed")
+      return
 
+    print(f"connected using {connection.protocol_name()}, listing available commands: ")
+    print(connection.print_commands())
 
-  for command in commands:
-    print(f"watching {command.name}")
-    connection.watch(command, callback=create_influx_callback(command))
+    for command in commands:
+      print(f"watching {command.name}")
+      connection.watch(command, callback=create_influx_callback(command, write_api))
 
-  connection.start()
-  while (True):
-    time.sleep(60)
+    connection.start()
+    while (True):
+      await asyncio.sleep(60)
 
-  connection.stop()
+    connection.stop()
 
-start()
+asyncio.run(start())
