@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-RTMP_SERVER="rtmp://104.198.139.249/live"
+RTMP_SERVER="rtmp://magicarp.krithikrao.com/live"
 STREAM_KEY="${1:-test}"  # Use first argument or default to "test"
 
 echo "======================================"
