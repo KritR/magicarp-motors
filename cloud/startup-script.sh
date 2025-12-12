@@ -1,88 +1,120 @@
 #!/bin/bash
 apt-get update
-apt-get install -y nginx libnginx-mod-rtmp curl
+apt-get install -y curl ca-certificates gnupg mosquitto-clients
 
-# Install InfluxDB 2.x
-wget -q https://repos.influxdata.com/influxdata-archive_compat.key
-echo '393e8779c89ac8d958f81f942f9ad7fb82a25e133faddaf92e15b16e6ac9ce4c influxdata-archive_compat.key' | sha256sum -c && cat influxdata-archive_compat.key | gpg --dearmor | tee /etc/apt/trusted.gpg.d/influxdata-archive_compat.gpg > /dev/null
-echo 'deb [signed-by=/etc/apt/trusted.gpg.d/influxdata-archive_compat.gpg] https://repos.influxdata.com/debian stable main' | tee /etc/apt/sources.list.d/influxdata.list
-apt-get update && apt-get install -y influxdb2
+# Install Podman
+apt-get install -y podman
 
-# Configure InfluxDB
-cat > /etc/influxdb/config.toml << 'INFLUX_EOF'
-bolt-path = "/var/lib/influxdb/influxd.bolt"
-engine-path = "/var/lib/influxdb/engine"
-session-length = 720
-INFLUX_EOF
+# Create Mosquitto configuration
+mkdir -p /etc/mosquitto
+cat > /etc/mosquitto/mosquitto.conf << 'MOSQUITTO_CONF_EOF'
+# Listen on default MQTT port
+listener 1883
+allow_anonymous true
 
-# Start InfluxDB
-systemctl start influxdb
-systemctl enable influxdb
+# Persistence for message retention
+persistence true
+persistence_location /mosquitto/data/
 
-# Wait for InfluxDB to start
-sleep 10
+# Logging
+log_dest stdout
+log_type error
+log_type warning
+log_type notice
+log_type information
+MOSQUITTO_CONF_EOF
 
-# Basic RTMP configuration
-cat > /etc/nginx/nginx.conf << 'NGINX_EOF'
-user www-data;
-worker_processes auto;
-pid /run/nginx.pid;
-include /etc/nginx/modules-enabled/*.conf;
+# Create systemd service file for Mosquitto MQTT Broker
+cat > /etc/systemd/system/mosquitto.service << 'MOSQUITTO_SERVICE_EOF'
+[Unit]
+Description=Mosquitto MQTT Broker (Podman)
+After=network-online.target
+Wants=network-online.target
 
-events {
-  worker_connections 768;
-}
+[Service]
+Type=simple
+Restart=always
+TimeoutStartSec=300
+ExecStartPre=/usr/bin/podman pull docker.io/eclipse-mosquitto:latest
+ExecStart=/usr/bin/podman run --rm --name mosquitto \
+  -p 1883:1883 \
+  -v /etc/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro \
+  docker.io/eclipse-mosquitto:latest
+ExecStop=/usr/bin/podman stop -t 10 mosquitto
 
-http {
-  sendfile on;
-  tcp_nopush on;
-  types_hash_max_size 2048;
-  include /etc/nginx/mime.types;
-  default_type application/octet-stream;
-  access_log /var/log/nginx/access.log;
-  error_log /var/log/nginx/error.log;
-  gzip on;
+[Install]
+WantedBy=multi-user.target
+MOSQUITTO_SERVICE_EOF
 
-  server {
-    listen 80;
-    server_name _;
+# Enable and start the Mosquitto service
+systemctl daemon-reload
+systemctl enable mosquitto.service
+systemctl start mosquitto.service
 
-    location / {
-      root /var/www/html;
-      index index.html;
-    }
+# Create MediaMTX configuration
+mkdir -p /etc/mediamtx
+cat > /etc/mediamtx/mediamtx.yml << 'MEDIAMTX_EOF'
+# MediaMTX Configuration
 
-    location /hls {
-      types {
-        application/vnd.apple.mpegurl m3u8;
-        video/mp2t ts;
-      }
-      root /tmp;
-      add_header Cache-Control no-cache;
-      add_header Access-Control-Allow-Origin *;
-    }
-  }
-}
+# RTMP server
+rtmp: yes
+rtmpAddress: :1935
 
-rtmp {
-  server {
-    listen 1935;
-    chunk_size 4096;
+# SRT server
+srt: yes
+srtAddress: :9998
 
-    application live {
-      live on;
-      record off;
+# HLS server
+hls: yes
+hlsAddress: :80
+hlsAllowOrigins: ['*']
+hlsVariant: lowLatency
+hlsSegmentCount: 7
+hlsSegmentDuration: 1s
+hlsPartDuration: 200ms
 
-      # Enable HLS
-      hls on;
-      hls_path /tmp/hls;
-      hls_fragment 3;
-      hls_playlist_length 60;
-    }
-  }
-}
-NGINX_EOF
+# API server
+api: yes
+apiAddress: :9997
 
-mkdir -p /tmp/hls
-chmod -R 755 /tmp/hls
-systemctl restart nginx
+# Logging
+logLevel: info
+
+# Path defaults - accept all streams
+paths:
+  all:
+    source: publisher
+MEDIAMTX_EOF
+
+# Create systemd service file for MediaMTX
+cat > /etc/systemd/system/mediamtx.service << 'MEDIAMTX_SERVICE_EOF'
+[Unit]
+Description=MediaMTX Media Server (Podman)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Restart=always
+TimeoutStartSec=900
+ExecStartPre=/usr/bin/podman pull docker.io/bluenviron/mediamtx:latest
+ExecStart=/usr/bin/podman run --rm --name mediamtx \
+  -p 1935:1935 \
+  -p 9998:9998/udp \
+  -p 80:80 \
+  -p 9997:9997 \
+  -p 8554:8554 \
+  -p 8889:8889 \
+  -p 8189:8189/udp \
+  -v /etc/mediamtx/mediamtx.yml:/mediamtx.yml:ro \
+  docker.io/bluenviron/mediamtx:latest
+ExecStop=/usr/bin/podman stop -t 10 mediamtx
+
+[Install]
+WantedBy=multi-user.target
+MEDIAMTX_SERVICE_EOF
+
+# Enable and start the MediaMTX service
+systemctl daemon-reload
+systemctl enable mediamtx.service
+systemctl start mediamtx.service

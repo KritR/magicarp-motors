@@ -4,7 +4,7 @@ resource "google_compute_address" "streaming_server_ip" {
   region = var.region
 }
 
-# Compute Engine instance for web server + RTMP streaming
+# Compute Engine instance for MediaMTX Media Server (RTMP/SRT/HLS/RTSP/WebRTC streaming)
 resource "google_compute_instance" "streaming_server" {
   name         = "streaming-server"
   machine_type = "e2-medium"
@@ -29,7 +29,7 @@ resource "google_compute_instance" "streaming_server" {
     startup-script = file("${path.module}/startup-script.sh")
   }
 
-  tags = ["http-server", "rtmp-server", "influxdb-server"]
+  tags = ["http-server", "rtmp-server", "srt-server", "mqtt-server", "mediamtx-api"]
 
   service_account {
     scopes = ["cloud-platform"]
@@ -64,18 +64,46 @@ resource "google_compute_firewall" "allow_rtmp" {
   target_tags   = ["rtmp-server"]
 }
 
-# Firewall rule for InfluxDB
-resource "google_compute_firewall" "allow_influxdb" {
-  name    = "allow-influxdb"
+# Firewall rule for SRT
+resource "google_compute_firewall" "allow_srt" {
+  name    = "allow-srt"
+  network = "default"
+
+  allow {
+    protocol = "udp"
+    ports    = ["9998"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["srt-server"]
+}
+
+# Firewall rule for MediaMTX API
+resource "google_compute_firewall" "allow_mediamtx_api" {
+  name    = "allow-mediamtx-api"
   network = "default"
 
   allow {
     protocol = "tcp"
-    ports    = ["8086"]
+    ports    = ["9997"]
   }
 
   source_ranges = ["0.0.0.0/0"]
-  target_tags   = ["influxdb-server"]
+  target_tags   = ["mediamtx-api"]
+}
+
+# Firewall rule for MQTT
+resource "google_compute_firewall" "allow_mqtt" {
+  name    = "allow-mqtt"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["1883"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["mqtt-server"]
 }
 
 # Output the external IP
@@ -84,7 +112,7 @@ output "streaming_server_ip" {
   value       = google_compute_address.streaming_server_ip.address
 }
 
-output "influxdb_url" {
-  description = "InfluxDB URL for API access"
-  value       = "http://${google_compute_address.streaming_server_ip.address}:8086"
+output "mqtt_broker" {
+  description = "MQTT broker connection details"
+  value       = "mqtt://${google_compute_address.streaming_server_ip.address}:1883"
 }
