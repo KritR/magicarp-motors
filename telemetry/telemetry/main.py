@@ -2,28 +2,22 @@ from typing import List
 import obd
 import os
 import asyncio
+import json
+import time
+import socket
 from dotenv import load_dotenv
-from influxdb_client import Point
-from influxdb_client.client.influxdb_client_async import InfluxDBClientAsync
 from datetime import datetime
+import paho.mqtt.client as mqtt
 
 load_dotenv()
 
-token = os.environ.get("INFLUXDB_TOKEN")
-if not token or len(token) == 0:
-  raise ValueError("INFLUXDB_TOKEN is not set")
+broker_host = os.environ.get("MQTT_BROKER_HOST")
+if not broker_host or len(broker_host) == 0:
+  raise ValueError("MQTT_BROKER_HOST is not set")
 
-org = os.environ.get("INFLUXDB_ORG")
-if not org or len(org) == 0:
-  raise ValueError("INFLUXDB_ORG is not set")
-
-bucket = os.environ.get("INFLUXDB_BUCKET")
-if not bucket or len(bucket) == 0:
-  raise ValueError("INFLUXDB_BUCKET is not set")
-
-url = os.environ.get("INFLUXDB_URL")
-if not url or len(url) == 0:
-  raise ValueError("INFLUXDB_URL is not set")
+broker_port = int(os.environ.get("MQTT_BROKER_PORT", "1883"))
+device_id = os.environ.get("DEVICE_ID", socket.gethostname())
+keepalive = int(os.environ.get("MQTT_KEEPALIVE", "30"))
 
 commands: List[obd.OBDCommand] = [
   obd.commands.RPM,
@@ -32,44 +26,80 @@ commands: List[obd.OBDCommand] = [
 ]
 
 drive_id = f"drive-{datetime.today().isoformat()}"
+base_topic = f"telemetry/{device_id}"
 
-def create_influx_callback(command: obd.OBDCommand, write_api):
+def now_ms():
+  return int(time.time() * 1000)
+
+def make_payload(metric: str, value, tags=None):
+  return json.dumps({
+    "ts_ms": now_ms(),
+    "device": device_id,
+    "metric": metric,
+    "value": value,
+    "tags": tags or {}
+  }, separators=(",", ":"))
+
+def on_connect(client, userdata, flags, rc):
+  print(f"MQTT connected: {rc}")
+
+def on_disconnect(client, userdata, rc):
+  print(f"MQTT disconnected: {rc}")
+
+# Initialize MQTT client
+mqtt_client = mqtt.Client(client_id=f"{device_id}-pub", clean_session=True)
+mqtt_client.on_connect = on_connect
+mqtt_client.on_disconnect = on_disconnect
+mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
+
+def create_mqtt_callback(command: obd.OBDCommand):
   def callback(response):
     if response.value == None or not isinstance(response.value, obd.Unit.Quantity):
       return
     val = response.value.magnitude
 
-    point = Point(command.name).field("value", val).tag("drive", drive_id)
-    asyncio.create_task(write_api.write(bucket=bucket, org="magicarp", record=point))
-    print(f"wrote {command.name}={val} to influx")
+    topic = f"{base_topic}/{command.name}"
+    payload = make_payload(command.name, val, {"drive": drive_id})
+    mqtt_client.publish(topic, payload=payload, qos=0, retain=False)
+    print(f"published {command.name}={val} to MQTT")
 
   return callback
 
 async def start():
-  async with InfluxDBClientAsync(url=url, token=token, org=org) as client:
-    write_api = client.write_api()
+  # Connect to MQTT broker
+  mqtt_client.connect_async(broker_host, broker_port, keepalive)
+  mqtt_client.loop_start()
 
-    print("connecting to obd2 port")
-    connection = obd.Async(
-      delay_cmds=0,
-      fast=True,
-    )
+  print("connecting to obd2 port")
+  connection = obd.Async(
+    delay_cmds=0,
+    fast=True,
+  )
 
-    if not connection.is_connected():
-      print("connection failed")
-      return
+  if not connection.is_connected():
+    print("connection failed")
+    mqtt_client.loop_stop()
+    mqtt_client.disconnect()
+    return
 
-    print(f"connected using {connection.protocol_name()}, listing available commands: ")
-    print(connection.print_commands())
+  print(f"connected using {connection.protocol_name()}, listing available commands: ")
+  print(connection.print_commands())
 
-    for command in commands:
-      print(f"watching {command.name}")
-      connection.watch(command, callback=create_influx_callback(command, write_api))
+  for command in commands:
+    print(f"watching {command.name}")
+    connection.watch(command, callback=create_mqtt_callback(command))
 
-    connection.start()
-    while (True):
+  connection.start()
+
+  try:
+    while True:
       await asyncio.sleep(60)
-
+  except KeyboardInterrupt:
+    print("\nStopping...")
+  finally:
     connection.stop()
+    mqtt_client.loop_stop()
+    mqtt_client.disconnect()
+    print("Disconnected from MQTT")
 
 asyncio.run(start())
