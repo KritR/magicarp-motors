@@ -106,6 +106,20 @@ resource "google_compute_firewall" "allow_mqtt" {
   target_tags   = ["mqtt-server"]
 }
 
+# Firewall rule for MQTT over WebSockets
+resource "google_compute_firewall" "allow_mqtt_websockets" {
+  name    = "allow-mqtt-websockets"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["9001"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["mqtt-server"]
+}
+
 # Output the external IP
 output "streaming_server_ip" {
   description = "External IP address of the streaming server"

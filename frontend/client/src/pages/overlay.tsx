@@ -1,11 +1,9 @@
 import React from "react";
 import logo from "@assets/image_1764551486080.png";
-import { useTelemetry, TelemetrySource } from "@/hooks/use-telemetry";
-
-const TELEMETRY_SOURCE: TelemetrySource = "influx";
+import { useTelemetry } from "@/hooks/use-telemetry";
 
 export default function Overlay() {
-  const { speed, rpm, throttle } = useTelemetry(50);
+  const { speed, rpm, throttle } = useTelemetry();
 
   return (
     <div className="min-h-screen w-full bg-transparent overflow-hidden relative font-mono">

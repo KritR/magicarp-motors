@@ -193,7 +193,7 @@ class VehicleSimulator:
         }
 
 
-def start(interval=1.0):
+def start(interval = 0.1):
     """
     Start generating and pushing fake telemetry data
 
@@ -243,4 +243,4 @@ def start(interval=1.0):
 if __name__ == "__main__":
     # Run with 1 second interval by default
     # You can change this to make data more/less frequent
-    start(interval=1.0)
+    start(interval=0.2)
