@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-RTMP_SERVER="rtmp://magicarp.krithikrao.com/live"
+SRT_SERVER="srt://magicarp.krithikrao.com:9998"
 
 # Check if ffmpeg is installed
 if ! command -v ffmpeg &> /dev/null; then
@@ -18,24 +18,27 @@ if [[ "$1" == "--list-devices" || "$1" == "-l" ]]; then
     ffmpeg -f avfoundation -list_devices true -i "" 2>&1 | grep -A 100 "AVFoundation video devices:" | grep -B 100 "AVFoundation audio devices:"
     echo ""
     echo "Usage: $0 [stream_key] [video_device] [audio_device]"
-    echo "Example: $0 test 0 0"
+    echo "Example: $0 livestream 0 0"
     exit 0
 fi
 
 # Parse arguments
-STREAM_KEY="${1:-test}"
+STREAM_KEY="${1:-livestream}"
 VIDEO_DEVICE="${2:-0}"
 AUDIO_DEVICE="${3:-0}"
 
 echo "======================================"
-echo "Mac Camera to RTMP Stream"
+echo "Mac Camera to SRT Stream"
 echo "======================================"
-echo "Server: $RTMP_SERVER"
+echo "Server: $SRT_SERVER"
 echo "Stream Key: $STREAM_KEY"
 echo "Video Device: $VIDEO_DEVICE"
 echo "Audio Device: $AUDIO_DEVICE"
 echo ""
-echo "Watch HLS stream at:"
+echo "Watch in VLC with:"
+echo "  vlc 'srt://magicarp.krithikrao.com:9998?streamid=read:$STREAM_KEY'"
+echo ""
+echo "Or watch HLS at:"
 echo "  http://magicarp.krithikrao.com/$STREAM_KEY/index.m3u8"
 echo ""
 echo "Run '$0 --list-devices' to see available devices"
@@ -43,20 +46,27 @@ echo "Press Ctrl+C to stop streaming"
 echo "======================================"
 echo ""
 
-# Stream from Mac camera
+# Stream from Mac camera using SRT
 ffmpeg \
   -f avfoundation \
   -framerate 30 \
   -video_size 1280x720 \
   -i "$VIDEO_DEVICE:$AUDIO_DEVICE" \
   -c:v libx264 \
-  -preset veryfast \
-  -maxrate 3000k \
-  -bufsize 6000k \
+  -preset fast \
+  -tune zerolatency \
+  -b:v 5000k \
+  -maxrate 6000k \
+  -bufsize 12000k \
   -pix_fmt yuv420p \
   -g 60 \
+  -bf 0 \
   -c:a aac \
   -b:a 128k \
   -ar 44100 \
-  -f flv \
-  "$RTMP_SERVER/$STREAM_KEY"
+  -ac 2 \
+  -f mpegts \
+  -mpegts_copyts 1 \
+  -muxdelay 0 \
+  -muxpreload 0 \
+  "srt://magicarp.krithikrao.com:9998?streamid=publish:$STREAM_KEY"
