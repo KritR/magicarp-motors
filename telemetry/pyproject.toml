@@ -1,20 +1,20 @@
-[tool.poetry]
+[project]
 name = "telemetry"
 version = "0.1.0"
 description = ""
-authors = ["Your Name <you@example.com>"]
+authors = [{ name = "Your Name", email = "you@example.com" }]
 readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "obd>=0.7.2",
+    "influxdb-client>=1.44.0",
+    "python-dotenv>=1.0.1",
+]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-obd = "^0.7.2"
-influxdb-client = "^1.44.0"
-python-dotenv = "^1.0.1"
-
-[tool.poetry.scripts]
+[project.scripts]
 start = "telemetry.main:start"
 fake-data = "telemetry.fake_data:start"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
