@@ -10,6 +10,13 @@ mkdir -p /etc/mosquitto
 cat > /etc/mosquitto/mosquitto.conf << 'MOSQUITTO_CONF_EOF'
 # Listen on default MQTT port
 listener 1883
+protocol mqtt
+
+# Listen on WebSocket port for browser clients
+listener 9001
+protocol websockets
+
+# Allow anonymous connections
 allow_anonymous true
 
 # Persistence for message retention
@@ -38,6 +45,7 @@ TimeoutStartSec=300
 ExecStartPre=/usr/bin/podman pull docker.io/eclipse-mosquitto:latest
 ExecStart=/usr/bin/podman run --rm --name mosquitto \
   -p 1883:1883 \
+  -p 9001:9001 \
   -v /etc/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro \
   docker.io/eclipse-mosquitto:latest
 ExecStop=/usr/bin/podman stop -t 10 mosquitto

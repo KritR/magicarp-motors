@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback, useRef } from "react";
-import { InfluxDB } from "@influxdata/influxdb-client";
+import { useEffect, useState, useRef } from "react";
+import mqtt from "mqtt";
 
 export interface TelemetryData {
   speed: number;
   rpm: number;
   throttle: number;
+  latency?: number; // End-to-end latency in ms
 }
 
 const DEFAULT_TELEMETRY: TelemetryData = {
@@ -13,66 +14,119 @@ const DEFAULT_TELEMETRY: TelemetryData = {
   throttle: 0,
 };
 
-const INFLUX_CONFIG = {
-  url: "http://136.119.147.212:8086",
-  token: "BrlRIQ9TWCyi_ITxudlr5joz4nnjp1v5_eYMC-Wm8twjWbaSPT3ht6qCRM23Tx9ccjCaUdLMeoR5fENtYQPk3Q==",
-  org: "magicarpmotors",
-  bucket: "obdcarp",
+const MQTT_CONFIG = {
+  host: "magicarp.krithikrao.com",
+  port: 9001, // WebSocket port
+  protocol: "ws" as const,
+  topic: "telemetry/#",
+  maxMessageAge: 1000, // Drop messages older than 1 second
 };
 
-export function useTelemetry(pollInterval: number): TelemetryData {
+interface TelemetryMessage {
+  ts_ms: number;
+  device: string;
+  metric: string;
+  value: number;
+  tags?: Record<string, string>;
+}
+
+export function useTelemetry(): TelemetryData {
   const [data, setData] = useState<TelemetryData>(DEFAULT_TELEMETRY);
-  const queryApiRef = useRef<ReturnType<InfluxDB["getQueryApi"]> | null>(null);
+  const clientRef = useRef<mqtt.MqttClient | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "disconnected">("disconnected");
 
   useEffect(() => {
-    const { url, token, org } = INFLUX_CONFIG;
-    const client = new InfluxDB({ url, token });
-    queryApiRef.current = client.getQueryApi(org);
-  }, []);
+    const { host, port, protocol, topic, maxMessageAge } = MQTT_CONFIG;
 
-  const fetchLatestData = useCallback(async () => {
-    if (!queryApiRef.current) return;
+    // Generate unique client ID
+    const clientId = `web_${Math.random().toString(16).slice(2, 10)}`;
 
-    const { bucket } = INFLUX_CONFIG;
-    const fluxQuery = `
-      from(bucket: "${bucket}")
-        |> range(start: -5s)
-        |> filter(fn: (r) => r._measurement == "RPM" or r._measurement == "THROTTLE_POS" or r._measurement == "SPEED")
-        |> filter(fn: (r) => r._field == "value")
-        |> last()
-    `;
+    console.log(`Connecting to MQTT broker at ${protocol}://${host}:${port}`);
 
-    try {
-      const newData: Partial<TelemetryData> = {};
+    // Connect to MQTT broker via WebSocket
+    const client = mqtt.connect(`${protocol}://${host}:${port}`, {
+      clientId,
+      clean: true,
+      reconnectPeriod: 5000,
+      connectTimeout: 10000,
+    });
 
-      for await (const { values, tableMeta } of queryApiRef.current.iterateRows(fluxQuery)) {
-        const row = tableMeta.toObject(values);
-        const measurement = row._measurement as string;
-        const value = row._value as number;
+    clientRef.current = client;
 
-        if (measurement === "SPEED") newData.speed = Math.floor(value);
-        else if (measurement === "RPM") newData.rpm = Math.floor(value);
-        else if (measurement === "THROTTLE_POS") newData.throttle = Math.floor(value);
+    // Connection event handlers
+    client.on("connect", () => {
+      console.log("Connected to MQTT broker");
+      setConnectionStatus("connected");
+
+      // Subscribe to telemetry topics with QoS 0
+      client.subscribe(topic, { qos: 0 }, (err) => {
+        if (err) {
+          console.error("Subscription error:", err);
+        } else {
+          console.log(`Subscribed to ${topic}`);
+        }
+      });
+    });
+
+    client.on("error", (error) => {
+      console.error("MQTT connection error:", error);
+      setConnectionStatus("disconnected");
+    });
+
+    client.on("close", () => {
+      console.log("MQTT connection closed");
+      setConnectionStatus("disconnected");
+    });
+
+    // Message handler
+    client.on("message", (topic: string, payload: Buffer) => {
+      try {
+        const message: TelemetryMessage = JSON.parse(payload.toString());
+        const now = Date.now();
+
+        // Calculate end-to-end latency
+        const latency = now - message.ts_ms;
+
+        // Drop messages older than maxMessageAge
+        if (latency > maxMessageAge) {
+          console.warn(`Dropped stale message: ${topic} (${latency}ms old)`);
+          return;
+        }
+
+        // Update state based on metric type
+        setData((prev) => {
+          const updates: Partial<TelemetryData> = { latency };
+
+          switch (message.metric) {
+            case "SPEED":
+              updates.speed = Math.floor(message.value);
+              break;
+            case "RPM":
+              updates.rpm = Math.floor(message.value);
+              break;
+            case "THROTTLE_POS":
+              updates.throttle = Math.floor(message.value);
+              break;
+            default:
+              return prev; // Unknown metric, don't update
+          }
+
+          return { ...prev, ...updates };
+        });
+      } catch (error) {
+        console.error("Error parsing MQTT message:", error);
       }
+    });
 
-      if (Object.keys(newData).length > 0) {
-        setData(prev => ({
-          speed: newData.speed ?? prev.speed,
-          rpm: newData.rpm ?? prev.rpm,
-          throttle: newData.throttle ?? prev.throttle,
-        }));
+    // Cleanup on unmount
+    return () => {
+      console.log("Disconnecting from MQTT broker");
+      if (clientRef.current) {
+        clientRef.current.end(true); // Force close
+        clientRef.current = null;
       }
-    } catch (error) {
-      console.error("Failed to fetch telemetry from InfluxDB:", error);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchLatestData();
-    const timer = setInterval(fetchLatestData, pollInterval);
-    return () => clearInterval(timer);
-  }, [fetchLatestData, pollInterval]);
+    };
+  }, []); // Empty dependency array - connect once on mount
 
   return data;
 }
-
