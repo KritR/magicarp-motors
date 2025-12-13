@@ -24,13 +24,6 @@ commands: List[obd.OBDCommand] = [
   obd.commands.RPM,
   obd.commands.THROTTLE_POS,
   obd.commands.SPEED,
-
-  # diagnostic adjacent
-  obd.commands.INTAKE_TEMP,
-  obd.commands.COOLANT_TEMP,
-  obd.commands.FUEL_PRESSURE,
-  obd.commands.FUEL_LEVEL,
-  obd.commands.OIL_TEMP,
 ]
 
 drive_id = f"drive-{datetime.today().isoformat()}"

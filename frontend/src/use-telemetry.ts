@@ -110,7 +110,8 @@ export function useTelemetry(): TelemetryData {
 
           switch (message.metric) {
             case "SPEED":
-              updates.speed = Math.floor(message.value);
+              // Apply gear ratio correction: 550/647
+              updates.speed = message.value * (550 / 647);
               break;
             case "RPM":
               updates.rpm = Math.floor(message.value);
