@@ -5,6 +5,7 @@ interface SmoothedTelemetryData {
   speed: number;
   rpm: number;
   throttle: number;
+  connected: boolean;
 }
 
 export function useSmoothedTelemetry(): SmoothedTelemetryData {
@@ -13,6 +14,7 @@ export function useSmoothedTelemetry(): SmoothedTelemetryData {
     speed: rawData.speed,
     rpm: rawData.rpm,
     throttle: rawData.throttle,
+    connected: rawData.connected,
   });
 
   const targetRef = useRef({ ...rawData });
@@ -23,9 +25,7 @@ export function useSmoothedTelemetry(): SmoothedTelemetryData {
   useEffect(() => {
     // Update target when raw data changes
     targetRef.current = {
-      speed: rawData.speed,
-      rpm: rawData.rpm,
-      throttle: rawData.throttle,
+      ...rawData,
     };
     lastUpdateRef.current = Date.now();
 
@@ -52,6 +52,7 @@ export function useSmoothedTelemetry(): SmoothedTelemetryData {
         speed: Math.round(current.speed * 100) / 100, // 2 decimals
         rpm: Math.round(current.rpm), // Nearest integer
         throttle: Math.round(current.throttle), // Nearest integer
+        connected: rawData.connected,
       });
 
       if (progress < 1) {

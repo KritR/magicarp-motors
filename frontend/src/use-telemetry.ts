@@ -6,12 +6,16 @@ export interface TelemetryData {
   rpm: number;
   throttle: number;
   latency?: number; // End-to-end latency in ms
+  connected: boolean;
+  hasData: boolean;
 }
 
 const DEFAULT_TELEMETRY: TelemetryData = {
   speed: 0,
   rpm: 0,
   throttle: 0,
+  connected: false,
+  hasData: false,
 };
 
 const MQTT_CONFIG = {
@@ -33,6 +37,8 @@ interface TelemetryMessage {
 export function useTelemetry(): TelemetryData {
   const [data, setData] = useState<TelemetryData>(DEFAULT_TELEMETRY);
   const clientRef = useRef<mqtt.MqttClient | null>(null);
+  const lastMessageTimeRef = useRef<number>(0);
+  const dataCheckIntervalRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     const { host, port, protocol, topic, maxMessageAge } = MQTT_CONFIG;
@@ -52,9 +58,22 @@ export function useTelemetry(): TelemetryData {
 
     clientRef.current = client;
 
+    // Check for stale data every second
+    dataCheckIntervalRef.current = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastMessage = now - lastMessageTimeRef.current;
+      const hasRecentData = timeSinceLastMessage < 2000; // 2 seconds threshold
+
+      setData((prev) => ({
+        ...prev,
+        hasData: hasRecentData,
+      }));
+    }, 1000);
+
     // Connection event handlers
     client.on("connect", () => {
       console.log("Connected to MQTT broker");
+      setData((prev) => ({ ...prev, connected: true }));
 
       // Subscribe to telemetry topics with QoS 0
       client.subscribe(topic, { qos: 0 }, (err) => {
@@ -68,10 +87,12 @@ export function useTelemetry(): TelemetryData {
 
     client.on("error", (error) => {
       console.error("MQTT connection error:", error);
+      setData((prev) => ({ ...prev, connected: false }));
     });
 
     client.on("close", () => {
       console.log("MQTT connection closed");
+      setData((prev) => ({ ...prev, connected: false }));
     });
 
     // Message handler
@@ -79,6 +100,7 @@ export function useTelemetry(): TelemetryData {
       try {
         const message: TelemetryMessage = JSON.parse(payload.toString());
         const now = Date.now();
+        lastMessageTimeRef.current = now;
 
         // Calculate end-to-end latency
         const latency = now - message.ts_ms;
@@ -91,7 +113,7 @@ export function useTelemetry(): TelemetryData {
 
         // Update state based on metric type
         setData((prev) => {
-          const updates: Partial<TelemetryData> = { latency };
+          const updates: Partial<TelemetryData> = { latency, hasData: true };
 
           switch (message.metric) {
             case "SPEED":
@@ -117,6 +139,9 @@ export function useTelemetry(): TelemetryData {
     // Cleanup on unmount
     return () => {
       console.log("Disconnecting from MQTT broker");
+      if (dataCheckIntervalRef.current) {
+        clearInterval(dataCheckIntervalRef.current);
+      }
       if (clientRef.current) {
         clientRef.current.end(true); // Force close
         clientRef.current = null;
