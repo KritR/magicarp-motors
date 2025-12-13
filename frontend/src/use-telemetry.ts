@@ -33,7 +33,6 @@ interface TelemetryMessage {
 export function useTelemetry(): TelemetryData {
   const [data, setData] = useState<TelemetryData>(DEFAULT_TELEMETRY);
   const clientRef = useRef<mqtt.MqttClient | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "disconnected">("disconnected");
 
   useEffect(() => {
     const { host, port, protocol, topic, maxMessageAge } = MQTT_CONFIG;
@@ -56,7 +55,6 @@ export function useTelemetry(): TelemetryData {
     // Connection event handlers
     client.on("connect", () => {
       console.log("Connected to MQTT broker");
-      setConnectionStatus("connected");
 
       // Subscribe to telemetry topics with QoS 0
       client.subscribe(topic, { qos: 0 }, (err) => {
@@ -70,12 +68,10 @@ export function useTelemetry(): TelemetryData {
 
     client.on("error", (error) => {
       console.error("MQTT connection error:", error);
-      setConnectionStatus("disconnected");
     });
 
     client.on("close", () => {
       console.log("MQTT connection closed");
-      setConnectionStatus("disconnected");
     });
 
     // Message handler

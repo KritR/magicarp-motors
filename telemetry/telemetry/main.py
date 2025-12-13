@@ -1,3 +1,4 @@
+from signal import signal
 from typing import List
 import obd
 import os
@@ -23,6 +24,13 @@ commands: List[obd.OBDCommand] = [
   obd.commands.RPM,
   obd.commands.THROTTLE_POS,
   obd.commands.SPEED,
+
+  # diagnostic adjacent
+  obd.commands.INTAKE_TEMP,
+  obd.commands.COOLANT_TEMP,
+  obd.commands.FUEL_PRESSURE,
+  obd.commands.FUEL_LEVEL,
+  obd.commands.OIL_TEMP,
 ]
 
 drive_id = f"drive-{datetime.today().isoformat()}"
@@ -54,7 +62,7 @@ mqtt_client.reconnect_delay_set(min_delay=1, max_delay=30)
 
 def create_mqtt_callback(command: obd.OBDCommand):
   def callback(response):
-    if response.value == None or not isinstance(response.value, obd.Unit.Quantity):
+    if response.value is None or not isinstance(response.value, obd.Unit.Quantity):
       return
     val = response.value.magnitude
 
@@ -91,11 +99,18 @@ async def start():
 
   connection.start()
 
-  try:
-    while True:
-      await asyncio.sleep(60)
-  except KeyboardInterrupt:
+  loop = asyncio.get_running_loop()
+  stop_event = asyncio.Event()
+
+  def signal_handler():
     print("\nStopping...")
+    stop_event.set()
+
+  for sig in ('SIGINT', 'SIGTERM'):
+    loop.add_signal_handler(getattr(signal, sig), signal_handler)
+
+  try:
+    await stop_event.wait()
   finally:
     connection.stop()
     mqtt_client.loop_stop()

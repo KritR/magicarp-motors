@@ -1,6 +1,5 @@
-import React from "react";
-import logo from "@assets/image_1764551486080.png";
-import { useTelemetry } from "@/hooks/use-telemetry";
+import logo from "./logo.png";
+import { useTelemetry } from "./use-telemetry";
 
 export default function Overlay() {
   const { speed, rpm, throttle } = useTelemetry();
