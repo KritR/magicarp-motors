@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useTelemetry, TelemetryData } from "./use-telemetry";
+import { useTelemetry } from "./use-telemetry";
 
 interface SmoothedTelemetryData {
   speed: number;
@@ -34,7 +34,7 @@ export function useSmoothedTelemetry(): SmoothedTelemetryData {
       const elapsed = now - lastUpdateRef.current;
 
       // Interpolate over ~200ms for smooth updates
-      const smoothingDuration = 200;
+      const smoothingDuration = 500;
       const progress = Math.min(elapsed / smoothingDuration, 1);
 
       // Ease-out function for smoother deceleration
