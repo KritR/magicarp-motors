@@ -1,8 +1,8 @@
 import logo from "./logo.png";
-import { useTelemetry } from "./use-telemetry";
+import { useSmoothedTelemetry } from "./useSmoothedTelemetry";
 
 export default function Overlay() {
-  const { speed, rpm, throttle } = useTelemetry();
+  const { speed, rpm, throttle } = useSmoothedTelemetry();
 
   return (
     <div className="min-h-screen w-full bg-transparent overflow-hidden relative font-mono">
@@ -27,9 +27,9 @@ export default function Overlay() {
                 <span className="text-xs text-primary font-bold tracking-wider leading-none">
                   RPM
                 </span>
-                <span className="text-lg text-primary font-bold tracking-wider leading-none tabular-nums">
+                <div className="text-lg text-primary font-bold tracking-wider leading-none tabular-nums">
                   {rpm}
-                </span>
+                </div>
               </div>
               <div className="flex items-end gap-[4px] h-8 w-full">
                 {Array.from({ length: 15 }).map((_, i) => {
@@ -56,9 +56,10 @@ export default function Overlay() {
                 <span className="text-xs text-accent font-bold tracking-wider leading-none">
                   THROTTLE
                 </span>
-                <span className="text-lg text-accent font-bold tracking-wider leading-none tabular-nums">
-                  {throttle}%
-                </span>
+                <div className="text-lg text-accent font-bold tracking-wider leading-none tabular-nums flex items-center gap-0">
+                  {throttle}
+                  <span>%</span>
+                </div>
               </div>
               <div className="flex items-end gap-[4px] h-5 w-full">
                 {Array.from({ length: 15 }).map((_, i) => {
@@ -81,12 +82,17 @@ export default function Overlay() {
           <div className="grid grid-cols-2 gap-4 relative z-20 pt-4 border-t border-white/10">
             {/* Speed */}
             <div className="flex flex-col justify-end pl-2">
-              <span className="text-xs text-primary/60 font-bold tracking-wider mb-1">
-                SPEED_MPH
+              <span className="text-xs text-primary/60 font-bold mb-1">
+                MPH
               </span>
-              <span className="text-8xl font-bold text-white text-glow leading-[0.8] tracking-tighter">
-                {speed}
-              </span>
+              <div className="flex items-end gap-3">
+                <div className="text-8xl font-bold text-white text-glow leading-[0.8]flex items-end gap-2">
+                  <span>{Math.floor(speed)}</span>
+                  <span className="text-2xl text-white/40" style={{ paddingBottom: '-4px' }}>
+                    {(speed % 1).toFixed(2).substring(1)}
+                  </span>
+                </div>
+              </div>
             </div>
             {/* Logo */}
             <div className="flex flex-col justify-end items-end h-full pb-2 pr-2">
