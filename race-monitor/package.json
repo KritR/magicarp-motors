@@ -1,0 +1,20 @@
+{
+  "name": "race-monitor",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run index.ts",
+    "dev": "bun run --watch index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "mqtt": "^5.14.1",
+    "puppeteer": "^24.33.0"
+  }
+}
