@@ -5,7 +5,6 @@ export interface TelemetryData {
   speed: number;
   rpm: number;
   throttle: number;
-  latency?: number; // End-to-end latency in ms
   connected: boolean;
   hasData: boolean;
 }
@@ -62,7 +61,9 @@ export function useTelemetry(): TelemetryData {
     dataCheckIntervalRef.current = setInterval(() => {
       const now = Date.now();
       const timeSinceLastMessage = now - lastMessageTimeRef.current;
-      const hasRecentData = timeSinceLastMessage < 2000; // 2 seconds threshold
+      // Only consider has data if we received a message within last 2 seconds
+      const hasRecentData = lastMessageTimeRef.current > 0 && timeSinceLastMessage < 2000;
+      console.log("hasRecentData", hasRecentData);
 
       setData((prev) => ({
         ...prev,
@@ -102,18 +103,10 @@ export function useTelemetry(): TelemetryData {
         const now = Date.now();
         lastMessageTimeRef.current = now;
 
-        // Calculate end-to-end latency
-        const latency = now - message.ts_ms;
-
-        // Drop messages older than maxMessageAge
-        if (latency > maxMessageAge) {
-          console.warn(`Dropped stale message: ${topic} (${latency}ms old)`);
-          return;
-        }
 
         // Update state based on metric type
         setData((prev) => {
-          const updates: Partial<TelemetryData> = { latency, hasData: true };
+          const updates: Partial<TelemetryData> = { hasData: true };
 
           switch (message.metric) {
             case "SPEED":

@@ -2,8 +2,8 @@ import logo from "./logo.png";
 import { useSmoothedTelemetry } from "./useSmoothedTelemetry";
 
 export default function Overlay() {
-  const { speed, rpm, throttle, connected } = useSmoothedTelemetry();
-  const isDisconnected = !connected;
+  const { speed, rpm, throttle, connected, hasData } = useSmoothedTelemetry();
+  const isDisconnected = !connected || !hasData;
 
   return (
     <div className="min-h-screen w-full bg-transparent overflow-hidden relative font-mono">
@@ -15,7 +15,9 @@ export default function Overlay() {
           {isDisconnected && (
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
               <div className="flex flex-col items-center gap-4">
-                <div className="text-red-500 text-4xl font-bold tracking-wider animate-pulse">DISCONNECTED</div>
+                <div className="text-red-500 text-4xl font-bold tracking-wider animate-pulse">
+                  DISCONNECTED
+                </div>
                 <div className="text-white/40 text-sm tracking-wider">
                   WAITING FOR TELEMETRY...
                 </div>
